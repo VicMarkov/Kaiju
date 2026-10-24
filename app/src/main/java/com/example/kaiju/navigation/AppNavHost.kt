@@ -5,6 +5,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -40,6 +42,7 @@ fun AppNavHost() {
     val usuarioActivo by sesionViewModel.usuarioActivo.collectAsState()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = backStackEntry?.destination?.route
+    val alertas by inventarioViewModel.alertas.collectAsState()
 
     val destinosMenu = buildList {
         add(Rutas.Catalogo.ruta)
@@ -74,7 +77,24 @@ fun AppNavHost() {
                         NavigationBarItem(
                             selected = rutaActual == Rutas.Alertas.ruta,
                             onClick = { irA(Rutas.Alertas.ruta) },
-                            icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+                            icon = {
+                                if (alertas.isEmpty()) {
+                                    Icon(Icons.Default.Notifications, contentDescription = null)
+                                } else {
+                                    BadgedBox(
+                                        badge = {
+                                            Badge {
+                                                Text(
+                                                    text = if (alertas.size > 99) "99+"
+                                                    else alertas.size.toString()
+                                                )
+                                            }
+                                        }
+                                    ) {
+                                        Icon(Icons.Default.Notifications, contentDescription = null)
+                                    }
+                                }
+                            },
                             label = { Text("Alertas") }
                         )
                     }

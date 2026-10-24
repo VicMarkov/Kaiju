@@ -28,6 +28,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -86,6 +87,12 @@ fun PantallaFormularioProducto(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Text(
+                text = "Datos del producto",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+
             OutlinedTextField(
                 value = formulario.codigo,
                 onValueChange = inventarioViewModel::cambiarCodigo,
@@ -133,6 +140,12 @@ fun PantallaFormularioProducto(
                 error = null,
                 opciones = inventarioViewModel.tiposDetalle,
                 onElegir = inventarioViewModel::cambiarTipo
+            )
+
+            Text(
+                text = "Precio y stock",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
             )
 
             OutlinedTextField(

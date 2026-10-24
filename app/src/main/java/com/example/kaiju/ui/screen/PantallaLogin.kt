@@ -1,8 +1,10 @@
 package com.example.kaiju.ui.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,11 +15,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,8 +30,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.kaiju.R
 import com.example.kaiju.model.descripcion
 import com.example.kaiju.viewmodel.SesionViewModel
 
@@ -49,28 +52,35 @@ fun PantallaLogin(
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(Modifier.height(40.dp))
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(72.dp)
-        )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(48.dp))
+        Box(
+            modifier = Modifier
+                .size(112.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.kaiju_logo),
+                contentDescription = null,
+                modifier = Modifier.size(84.dp)
+            )
+        }
+        Spacer(Modifier.height(16.dp))
         Text(
             text = "Kaiju Inventario",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+            style = MaterialTheme.typography.headlineSmall
         )
         Text(
             text = "Control de existencias y movimientos",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(32.dp))
         Text(
             text = "Elige un usuario de prueba",
-            style = MaterialTheme.typography.titleMedium
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary
         )
         Spacer(Modifier.height(12.dp))
 
@@ -79,25 +89,39 @@ fun PantallaLogin(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.small)
                     .border(
                         width = 1.dp,
                         color = if (seleccion) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.outlineVariant,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.small
                     )
                     .background(
                         if (seleccion) MaterialTheme.colorScheme.primaryContainer
                         else MaterialTheme.colorScheme.surface
                     )
                     .clickable { sesionViewModel.seleccionarUsuario(usuario) }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RadioButton(
-                    selected = seleccion,
-                    onClick = { sesionViewModel.seleccionarUsuario(usuario) }
-                )
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (seleccion) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = usuario.nombre.first().uppercaseChar().toString(),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (seleccion) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
                         text = usuario.nombre,
@@ -110,6 +134,10 @@ fun PantallaLogin(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                RadioButton(
+                    selected = seleccion,
+                    onClick = { sesionViewModel.seleccionarUsuario(usuario) }
+                )
             }
             Spacer(Modifier.height(8.dp))
         }

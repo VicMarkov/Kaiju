@@ -48,7 +48,7 @@ Cada decisión debe justificarse con la necesidad del caso.
 | Dos recursos nativos | *Pendiente* | *Pendiente* |
 | Animaciones | *Pendiente* | *Pendiente* |
 | Un módulo propio | *Pendiente* | *Pendiente* |
-| Identidad visual | *Pendiente* (paleta y tipografía en `ui/theme/`) | *Pendiente* |
+| Identidad visual | Paleta **verde bosque + ámbar** en `ui/theme/` (`Color.kt`, esquemas claro y oscuro completos, color dinámico desactivado), tipografía con títulos en negrita (`Type.kt`), formas redondeadas (`Shapes.kt`) y la mascota de `iconokaiju.png` como ícono de launcher e imagen de marca en el login | Verde = inventario saludable; ámbar = acento de alertas/reposición; rojo solo para stock crítico. Paleta fija (no Material You) para que la app tenga la misma identidad en cualquier dispositivo. El ícono se genera adaptativo (API 26+) con fondo verde `#C8E6C9` y PNG legacy para API 24-25, todo desde `iconokaiju.png` |
 
 ## Cómo compilar y probar
 
