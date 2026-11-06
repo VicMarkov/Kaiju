@@ -1,5 +1,10 @@
 package com.example.kaiju.ui.screen
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,16 +31,21 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.kaiju.model.Movimiento
@@ -44,6 +55,7 @@ import com.example.kaiju.ui.components.IndicadorStock
 import com.example.kaiju.ui.components.formatoPesos
 import com.example.kaiju.ui.theme.LocalStockColores
 import com.example.kaiju.viewmodel.InventarioViewModel
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +71,19 @@ fun PantallaDetalleProducto(
 
     val producto by inventarioViewModel.productoDetalle.collectAsState()
     val historial by inventarioViewModel.historial.collectAsState()
+    val contexto = LocalContext.current
+    val lanzadorFoto = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            val directorio = File(contexto.filesDir, "fotos").apply { mkdirs() }
+            val archivo = File(directorio, "$codigo.jpg")
+            archivo.outputStream().use { flujo ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, flujo)
+            }
+            inventarioViewModel.asignarFoto(codigo, archivo.absolutePath)
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
@@ -99,6 +124,38 @@ fun PantallaDetalleProducto(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            val archivoFoto =
+                                if (actual.fotoPath.isBlank()) null else File(actual.fotoPath)
+                            val bitmapFoto = remember(actual.fotoPath) {
+                                archivoFoto?.takeIf { it.exists() }
+                                    ?.let { BitmapFactory.decodeFile(it.absolutePath) }
+                            }
+                            if (bitmapFoto != null) {
+                                Image(
+                                    bitmap = bitmapFoto.asImageBitmap(),
+                                    contentDescription = "Foto de evidencia del producto",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(160.dp)
+                                        .clip(MaterialTheme.shapes.medium),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (bitmapFoto != null) "Foto de evidencia"
+                                    else "Sin foto de evidencia",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                OutlinedButton(onClick = { lanzadorFoto.launch(null) }) {
+                                    Text("Tomar foto")
+                                }
+                            }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,

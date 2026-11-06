@@ -70,6 +70,12 @@ class InventarioViewModel : ViewModel() {
         _historial.value = InventarioRepository.historialDe(codigo)
     }
 
+    fun asignarFoto(codigo: String, ruta: String) {
+        InventarioRepository.asignarFoto(codigo, ruta)
+        _productos.value = InventarioRepository.productos()
+        _productoDetalle.value = InventarioRepository.producto(codigo)
+    }
+
     private val _formulario = MutableStateFlow(FormularioProductoEstado())
     val formulario: StateFlow<FormularioProductoEstado> = _formulario.asStateFlow()
 

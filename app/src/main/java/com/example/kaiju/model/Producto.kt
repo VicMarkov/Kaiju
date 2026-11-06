@@ -9,7 +9,8 @@ data class Producto(
     val precio: Int,
     val stockActual: Int,
     val stockMinimo: Int,
-    val detalle: String = ""
+    val detalle: String = "",
+    val fotoPath: String = ""
 ) {
     fun estaEnAlerta(): Boolean = stockActual <= stockMinimo
 }
