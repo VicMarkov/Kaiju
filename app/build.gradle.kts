@@ -1,3 +1,17 @@
+import java.util.Properties
+
+val propiedadesLocales = Properties().apply {
+    val archivo = rootProject.file("local.properties")
+
+    if (archivo.exists()) {
+        archivo.inputStream().use { load(it) }
+    }
+}
+
+val catApiKey = propiedadesLocales
+    .getProperty("CAT_API_KEY", "")
+    .trim()
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -16,6 +30,12 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        buildConfigField(
+            "String",
+            "CAT_API_KEY",
+            "\"${catApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -33,6 +53,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -49,6 +70,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

@@ -31,6 +31,9 @@ import com.example.kaiju.ui.screen.PantallaLogin
 import com.example.kaiju.ui.screen.PantallaMovimiento
 import com.example.kaiju.viewmodel.InventarioViewModel
 import com.example.kaiju.viewmodel.SesionViewModel
+import com.example.kaiju.viewmodel.EasterEggViewModel
+import com.example.kaiju.ui.components.DialogoEasterEgg
+
 
 @Composable
 fun AppNavHost() {
@@ -38,6 +41,11 @@ fun AppNavHost() {
     val navController = rememberNavController()
     val sesionViewModel: SesionViewModel = viewModel()
     val inventarioViewModel: InventarioViewModel = viewModel()
+
+    val easterEggViewModel: EasterEggViewModel = viewModel()
+    val estadoEasterEgg by
+    easterEggViewModel.estado.collectAsState()
+
 
     val usuarioActivo by sesionViewModel.usuarioActivo.collectAsState()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -61,12 +69,28 @@ fun AppNavHost() {
         bottomBar = {
             if (usuarioActivo != null && rutaActual != null && rutaActual in destinosMenu) {
                 NavigationBar {
+
                     NavigationBarItem(
                         selected = rutaActual == Rutas.Catalogo.ruta,
-                        onClick = { irA(Rutas.Catalogo.ruta) },
-                        icon = { Icon(Icons.Default.List, contentDescription = null) },
-                        label = { Text("Catálogo") }
+                        onClick = {
+                            // Registrar pulsación para el Easter Egg
+                            easterEggViewModel.registrarToqueCatalogo()
+                            // Evitar navegar nuevamente si ya estamos en Catálogo
+                            if (rutaActual != Rutas.Catalogo.ruta) {
+                                irA(Rutas.Catalogo.ruta)
+                            }
+                        },
+                        icon = {
+                            Icon(
+                                Icons.Default.List,
+                                contentDescription = null
+                            )
+                        },
+                        label = {
+                            Text("Catálogo")
+                        }
                     )
+
                     NavigationBarItem(
                         selected = rutaActual == Rutas.Movimiento.ruta,
                         onClick = { irA(Rutas.Movimiento.ruta) },
@@ -179,4 +203,15 @@ fun AppNavHost() {
             }
         }
     }
+
+    DialogoEasterEgg(
+        estado = estadoEasterEgg,
+        onOtroGato = {
+            easterEggViewModel.obtenerOtroGato()
+        },
+        onCerrar = {
+            easterEggViewModel.cerrarEasterEgg()
+        }
+    )
+
 }
