@@ -9,11 +9,14 @@ Aplicación Android de **control de inventario** para el caso **Kaiju**: catálo
 ## Equipo
 
 |---|
+
 Vicente Markov
 José Miguel Ibarra
+
 |---|
 
 vi.markov@duocuc.cl
+
 jo.ibarrav@duocuc.cl
 
 ## Descripción de la app
