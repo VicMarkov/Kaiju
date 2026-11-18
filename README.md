@@ -10,9 +10,11 @@ Aplicación Android de **control de inventario** para el caso **Kaiju**: catálo
 
 |---|
 Vicente Markov
+José Miguel Ibarra
 |---|
 
 vi.markov@duocuc.cl
+jo.ibarrav@duocuc.cl
 
 ## Descripción de la app
 
@@ -59,6 +61,102 @@ cd Kaiju
 .\gradlew.bat assembleDebug     # genera el APK de debug
 .\gradlew.bat installDebug      # instala en el emulador/dispositivo conectado
 ```
+
+## Easter Egg – Integración con The Cat API.
+
+### Descripción
+
+KaijuApp incorpora una funcionalidad oculta para demostrar el consumo de una API REST externa mediante Retrofit, Kotlin y Jetpack Compose.
+
+Al presionar **10 veces el botón Catálogo** del menú inferior, aparece una ventana que muestra:
+
+- Una imagen aleatoria de un gato.
+- Información de su raza, origen, temperamento y esperanza de vida.
+- Un consejo local de salud felina.
+- La opción **Otro gato**, que permite solicitar una nueva fotografía.
+- La opción **Cerrar**, que permite regresar al catálogo.
+
+### API utilizada
+
+**Nombre:** The Cat API
+
+**Sitio web:** https://thecatapi.com/
+
+**Endpoint principal:**
+
+`GET https://api.thecatapi.com/v1/images/search?limit=1&has_breeds=1&include_breeds=1`
+
+La solicitud utiliza la cabecera `x-api-key` y obtiene una respuesta JSON con fotografías y metadatos de razas.
+
+### Tecnologías y arquitectura
+
+La implementación sigue el patrón MVVM:
+
+| Capa | Archivo | Responsabilidad |
+|---|---|---|
+| Model | `GatoResponse.kt` | Representa la respuesta JSON de la API. |
+| Model | `GatoApi.kt` | Representa los datos utilizados por la interfaz. |
+| Model | `EasterEggEstado.kt` | Define los estados de carga, resultado y error. |
+| Repository | `CatApiService.kt` | Define los endpoints mediante anotaciones Retrofit. |
+| Repository | `CatRepository.kt` | Realiza solicitudes y transforma respuestas. |
+| ViewModel | `EasterEggViewModel.kt` | Controla las diez pulsaciones, solicitudes y estados. |
+| UI | `DialogoEasterEgg.kt` | Muestra fotografías, información y consejos de salud. |
+| Navigation | `AppNavHost.kt` | Detecta la combinación que activa el Easter Egg. |
+
+Se utiliza **Retrofit y Gson** para las respuestas HTTP y JSON, **Kotlin Coroutines** para las operaciones asíncronas, **StateFlow** para el estado observable y **Coil 3** para cargar imágenes.
+
+### Configuración
+
+1. Obtener una API key desde https://thecatapi.com/.
+2. Crear o abrir `local.properties` en la raíz del proyecto.
+3. Agregar la propiedad `CAT_API_KEY=TU_CLAVE_PERSONAL`.
+4. Sincronizar Gradle.
+5. Ejecutar KaijuApp en Android Studio.
+
+`local.properties` está excluido del control de versiones y no debe subirse a GitHub.
+
+La API key se incorpora en `BuildConfig` durante la compilación. Esta solución evita publicar la credencial en el código fuente, aunque no impide extraerla de un APK distribuido.
+
+### Cómo acceder
+
+1. Iniciar sesión con un usuario de prueba.
+2. Abrir la pantalla Catálogo.
+3. Presionar diez veces el botón **Catálogo** del menú inferior.
+4. Esperar la respuesta de The Cat API.
+5. Utilizar **Otro gato** para consultar otra fotografía.
+
+El ViewModel evita solicitudes repetidas durante recomposiciones y conserva temporalmente la última respuesta para reutilizarla cuando corresponda.
+
+### Pruebas
+
+Se implementaron pruebas unitarias en `CatRepositoryTest.kt` para comprobar:
+
+| Prueba | Comportamiento esperado |
+|---|---|
+| `idVacioEsRechazado` | Rechaza un identificador vacío. |
+| `consultaExitosaDevuelveGato` | Convierte una respuesta simulada HTTP 200 en un modelo `GatoApi`. |
+| `falloConexionEsPropagado` | Propaga una excepción de conexión. |
+| `respuestaVaciaEsRechazada` | Rechaza una respuesta sin imágenes. |
+
+Comando para ejecutar las pruebas:
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest --tests "com.example.kaiju.CatRepositoryTest"
+```
+
+Además de estas pruebas automatizadas, se debe comprobar manualmente que el diálogo muestre una fotografía real, presente los errores de conexión y permita reintentar después de recuperar internet.
+
+### Evidencia visual
+
+![Easter Egg de The Cat API en KaijuApp](docs/easter-egg.png)
+
+### Consideraciones
+
+- Requiere conexión a internet para descargar nuevas fotografías.
+- Los consejos de salud felina están almacenados localmente.
+- La funcionalidad no modifica los productos ni movimientos de inventario.
+- Las fallas de red se manejan sin cerrar inesperadamente la aplicación.
+- La clave de API no se publica en el repositorio.
 
 ## Datos
 

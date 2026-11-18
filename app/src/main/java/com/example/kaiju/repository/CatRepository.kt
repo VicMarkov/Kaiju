@@ -1,110 +1,94 @@
+
 package com.example.kaiju.repository
 
 import com.example.kaiju.BuildConfig
 import com.example.kaiju.model.GatoApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import java.net.HttpURLConnection
-import java.net.URL
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import java.io.IOException
 
-class CatRepository {
+class CatRepository(
+    private val servicio: CatApiService = servicioCompartido,
+    private val apiKey: String = BuildConfig.CAT_API_KEY
+) {
 
     companion object {
-        private const val URL_API =
-            "https://api.thecatapi.com/v1/images/search" +
-                    "?limit=1&has_breeds=1&include_breeds=1&order=RAND"
+
+        private val servicioCompartido: CatApiService by lazy {
+            Retrofit.Builder()
+                .baseUrl("https://api.thecatapi.com/")
+                .addConverterFactory(
+                    GsonConverterFactory.create()
+                )
+                .build()
+                .create(CatApiService::class.java)
+        }
     }
 
-    suspend fun obtenerGatoAleatorio(): GatoApi =
-        withContext(Dispatchers.IO) {
+    suspend fun obtenerGatoAleatorio(): GatoApi {
 
-            if (BuildConfig.CAT_API_KEY.isBlank()) {
-                throw IllegalStateException(
-                    "No se configuró la clave de The Cat API"
-                )
-            }
-
-            val conexion = URL(URL_API)
-                .openConnection() as HttpURLConnection
-
-            try {
-                conexion.requestMethod = "GET"
-                conexion.connectTimeout = 10000
-                conexion.readTimeout = 10000
-
-                conexion.setRequestProperty(
-                    "x-api-key",
-                    BuildConfig.CAT_API_KEY
-                )
-
-                conexion.setRequestProperty(
-                    "Accept",
-                    "application/json"
-                )
-
-                val codigoRespuesta = conexion.responseCode
-
-                if (codigoRespuesta !in 200..299) {
-                    throw Exception(
-                        "Error HTTP: $codigoRespuesta"
-                    )
-                }
-
-                val respuesta = conexion.inputStream
-                    .bufferedReader()
-                    .use { it.readText() }
-
-                val gatos = JSONArray(respuesta)
-
-                if (gatos.length() == 0) {
-                    throw Exception(
-                        "La API no devolvió imágenes"
-                    )
-                }
-
-                val gatoJson = gatos.getJSONObject(0)
-                val razas = gatoJson.optJSONArray("breeds")
-
-                val raza = if (
-                    razas != null && razas.length() > 0
-                ) {
-                    razas.getJSONObject(0)
-                } else {
-                    null
-                }
-
-                val imagenUrl = gatoJson.optString("url")
-
-                if (!imagenUrl.startsWith("https://")) {
-                    throw Exception(
-                        "La API devolvió una URL inválida"
-                    )
-                }
-
-                GatoApi(
-                    id = gatoJson.getString("id"),
-                    imagenUrl = imagenUrl,
-                    nombreRaza = raza?.optString(
-                        "name",
-                        "Raza desconocida"
-                    ) ?: "Raza desconocida",
-                    origen = raza?.optString(
-                        "origin",
-                        "No disponible"
-                    ) ?: "No disponible",
-                    temperamento = raza?.optString(
-                        "temperament",
-                        "No disponible"
-                    ) ?: "No disponible",
-                    esperanzaVida = raza?.optString(
-                        "life_span",
-                        "No disponible"
-                    ) ?: "No disponible"
-                )
-
-            } finally {
-                conexion.disconnect()
-            }
+        if (apiKey.isBlank()) {
+            throw IllegalStateException(
+                "No se configuró la clave de The Cat API"
+            )
         }
+
+        val respuesta = servicio.obtenerGatos(
+            apiKey = apiKey
+        )
+
+        if (!respuesta.isSuccessful) {
+            throw IOException(
+                "La API respondió con HTTP ${respuesta.code()}"
+            )
+        }
+
+        val gato = respuesta.body()
+            ?.firstOrNull()
+            ?: throw IOException(
+                "La API no devolvió fotografías"
+            )
+
+        val imagenUrl = gato.url.orEmpty()
+
+        if (!imagenUrl.startsWith("https://")) {
+            throw IOException(
+                "La fotografía no tiene una URL válida"
+            )
+        }
+
+        val raza = gato.razas?.firstOrNull()
+
+        return GatoApi(
+            id = gato.id.orEmpty(),
+            imagenUrl = imagenUrl,
+            nombreRaza = raza?.nombre
+                ?.takeIf { it.isNotBlank() }
+                ?: "Raza desconocida",
+            origen = raza?.origen
+                ?.takeIf { it.isNotBlank() }
+                ?: "No disponible",
+            temperamento = raza?.temperamento
+                ?.takeIf { it.isNotBlank() }
+                ?: "No disponible",
+            esperanzaVida = raza?.esperanzaVida
+                ?.takeIf { it.isNotBlank() }
+                ?: "No disponible"
+        )
+    }
+
+    // Permite comprobar respuestas de entrada inválida
+    suspend fun comprobarIdInvalido(id: String): Int {
+
+        require(id.isNotBlank()) {
+            "El identificador no puede estar vacío"
+        }
+
+        val respuesta = servicio.obtenerGatoPorId(
+            apiKey = apiKey,
+            id = id
+        )
+
+        return respuesta.code()
+    }
 }

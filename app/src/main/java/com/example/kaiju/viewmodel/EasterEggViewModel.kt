@@ -1,14 +1,15 @@
+
 package com.example.kaiju.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.kaiju.model.ConsejosFelinos
 import com.example.kaiju.model.EasterEggEstado
+import com.example.kaiju.model.GatoApi
 import com.example.kaiju.repository.CatRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
@@ -20,17 +21,17 @@ class EasterEggViewModel : ViewModel() {
 
     private var trabajoCarga: Job? = null
 
+    // Caché durante la vida de este ViewModel
+    private var ultimoGato: GatoApi? = null
+
     private val _estado = MutableStateFlow(
         EasterEggEstado()
     )
 
-    val estado: StateFlow<EasterEggEstado> =
-        _estado.asStateFlow()
+    val estado = _estado.asStateFlow()
 
-    // Registra cada pulsación del botón Catálogo
     fun registrarToqueCatalogo() {
 
-        // No contar mientras la ventana esté abierta
         if (_estado.value.visible) return
 
         contadorToques++
@@ -41,24 +42,24 @@ class EasterEggViewModel : ViewModel() {
         }
     }
 
-    // Abre la ventana y solicita un gato
     private fun abrirEasterEgg() {
-
-        val consejo = ConsejosFelinos.obtenerAleatorio()
 
         _estado.value = EasterEggEstado(
             visible = true,
-            cargando = true,
-            consejo = consejo
+            cargando = ultimoGato == null,
+            gato = ultimoGato,
+            consejo = ConsejosFelinos.obtenerAleatorio()
         )
 
-        cargarGato()
+        // Solo consultar si todavía no tenemos un gato
+        if (ultimoGato == null) {
+            cargarGato()
+        }
     }
 
-    // Obtiene una imagen y datos de raza desde la API
     fun cargarGato() {
 
-        // Evita solicitudes simultáneas
+        if (!_estado.value.visible) return
         if (trabajoCarga?.isActive == true) return
 
         _estado.value = _estado.value.copy(
@@ -70,13 +71,14 @@ class EasterEggViewModel : ViewModel() {
         trabajoCarga = viewModelScope.launch {
 
             try {
-                val gatoObtenido =
-                    repository.obtenerGatoAleatorio()
+                val nuevoGato = repository.obtenerGatoAleatorio()
+
+                ultimoGato = nuevoGato
 
                 if (_estado.value.visible) {
                     _estado.value = _estado.value.copy(
                         cargando = false,
-                        gato = gatoObtenido,
+                        gato = nuevoGato,
                         error = null
                     )
                 }
@@ -89,22 +91,26 @@ class EasterEggViewModel : ViewModel() {
                 if (_estado.value.visible) {
                     _estado.value = _estado.value.copy(
                         cargando = false,
-                        error = "No se pudo cargar el gato. " +
-                                "Comprueba tu conexión a internet."
+                        error = when (e) {
+                            is IllegalStateException ->
+                                "No se configuró la API key."
+                            else ->
+                                "No se pudo cargar el gato. " +
+                                        "Revisa tu conexión e inténtalo otra vez."
+                        }
                     )
                 }
+
+            } finally {
+                trabajoCarga = null
             }
         }
     }
 
-    // Permite solicitar otra fotografía
     fun obtenerOtroGato() {
-        if (!_estado.value.visible) return
-
         cargarGato()
     }
 
-    // Cierra la ventana y cancela una carga pendiente
     fun cerrarEasterEgg() {
 
         trabajoCarga?.cancel()
@@ -113,5 +119,7 @@ class EasterEggViewModel : ViewModel() {
         contadorToques = 0
 
         _estado.value = EasterEggEstado()
+
+        // No borramos ultimoGato para reutilizarlo
     }
 }
