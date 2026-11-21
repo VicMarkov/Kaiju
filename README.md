@@ -11,6 +11,8 @@ Aplicación Android de **control de inventario** para el caso **Kaiju**: catálo
 |---|
 
 Vicente Markov
+
+
 José Miguel Ibarra
 
 |---|

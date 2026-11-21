@@ -13,9 +13,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class EasterEggViewModel : ViewModel() {
 
-    private val repository = CatRepository()
+class EasterEggViewModel(
+    private val repository: CatRepository = CatRepository()
+) : ViewModel() {
 
     private var contadorToques = 0
 

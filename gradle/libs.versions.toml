@@ -12,6 +12,10 @@ navigationCompose = "2.9.8"
 datastore = "1.1.1"
 coil = "3.3.0"
 retrofit = "2.11.0"
+kotest = "6.2.7"
+mockk = "1.14.12"
+coroutinesTest = "1.11.0"
+junitVintage = "5.13.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -36,6 +40,11 @@ coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref 
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+kotest-runner = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+junit-vintage = { group = "org.junit.vintage", name = "junit-vintage-engine", version.ref = "junitVintage" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
