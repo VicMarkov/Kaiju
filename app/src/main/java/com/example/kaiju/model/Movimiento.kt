@@ -1,5 +1,8 @@
 package com.example.kaiju.model
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
 enum class TipoMovimiento {
     ENTRADA,
     SALIDA_VENTA,
@@ -7,7 +10,9 @@ enum class TipoMovimiento {
     AJUSTE
 }
 
+@Entity(tableName = "movimientos")
 data class Movimiento(
+    @PrimaryKey
     val id: String,
     val codigoProducto: String,
     val tipo: TipoMovimiento,

@@ -38,15 +38,16 @@ Organización por capas (Guía 10, sección 3), bajo `app/src/main/java/com/exam
 ```
 MainActivity.kt          // solo llama a AppNavHost()
 navigation/              // rutas (sealed) y NavHost con menú inferior
-model/                   // Producto, Movimiento, Usuario, estados de formularios
-repository/              // InventarioRepository (en memoria) y DatosDePrueba
+model/                   // Producto, Movimiento, Usuario (entidades Room), estados de formularios
+database/                // KaijuDatabase (SQLite/Room) y DAOs de productos, movimientos y usuarios
+repository/              // InventarioRepository (única puerta a los datos) y DatosDePrueba
 viewmodel/               // SesionViewModel e InventarioViewModel (reglas RN)
 ui/screen/               // las 6 pantallas
 ui/components/           // TarjetaProducto e IndicadorStock
 ui/theme/                // colores y tipografía
 ```
 
-Las pantallas solo muestran estado; la validación y las reglas de negocio viven en el `InventarioViewModel`; el `InventarioRepository` es el único que guarda los datos (hoy en memoria; más tarde persistencia local, sin tocar las pantallas).
+Las pantallas solo muestran estado; la validación y las reglas de negocio viven en el `InventarioViewModel`; el `InventarioRepository` es el único que guarda los datos, en una **base SQLite local gestionada con Room** (`database/`, tablas `productos`, `movimientos` y `usuarios`). Si algún día se conecta a una BD remota, se reemplaza solo esa capa, sin tocar pantallas ni ViewModels.
 
 ## Decisiones del equipo (sección 6 de la Guía 10)
 
@@ -165,4 +166,4 @@ Además de estas pruebas automatizadas, se debe comprobar manualmente que el di�
 
 ## Datos
 
-Todos los productos, usuarios y movimientos son **ficticios** (el caso prohíbe usar datos reales de Kaiju o de personas). Viven en `repository/DatosDePrueba.kt`.
+Todos los productos, usuarios y movimientos son **ficticios** (el caso prohíbe usar datos reales de Kaiju o de personas). Están definidos en `repository/DatosDePrueba.kt` y se siembran en la base SQLite (`kaiju.db`) en el primer arranque; después, todo lo que se cree vive en la BD.

@@ -1,6 +1,7 @@
 package com.example.kaiju.repository
 
 import android.content.Context
+import com.example.kaiju.database.KaijuDatabase
 import com.example.kaiju.model.Movimiento
 import com.example.kaiju.model.Producto
 import com.example.kaiju.model.Usuario
@@ -13,32 +14,28 @@ import kotlinx.coroutines.runBlocking
 object InventarioRepository {
 
     private val alcance = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var contexto: Context? = null
+    private var base: KaijuDatabase? = null
 
-    private val usuarios = DatosDePrueba.usuarios.toMutableList()
-    private val productos = DatosDePrueba.productos.toMutableList()
-    private val movimientos = DatosDePrueba.movimientos.toMutableList()
+    private val usuarios = mutableListOf<Usuario>()
+    private val productos = mutableListOf<Producto>()
+    private val movimientos = mutableListOf<Movimiento>()
 
     fun inicializar(contextoAplicacion: Context) {
-        val contextoAplicacionLimpia = contextoAplicacion.applicationContext
-        contexto = contextoAplicacionLimpia
-        val guardado = runBlocking { InventarioDataStore.cargar(contextoAplicacionLimpia) }
-        if (guardado != null) {
+        val contextoLimpio = contextoAplicacion.applicationContext
+        runBlocking(Dispatchers.IO) {
+            val db = KaijuDatabase.obtener(contextoLimpio)
+            base = db
+            if (db.productoDao().contar() == 0) {
+                db.usuarioDao().insertarTodos(DatosDePrueba.usuarios)
+                db.productoDao().insertarTodos(DatosDePrueba.productos)
+                db.movimientoDao().insertarTodos(DatosDePrueba.movimientos)
+            }
+            usuarios.clear()
+            usuarios.addAll(db.usuarioDao().todos())
             productos.clear()
-            productos.addAll(guardado.first)
+            productos.addAll(db.productoDao().todos())
             movimientos.clear()
-            movimientos.addAll(guardado.second)
-        } else {
-            persistir()
-        }
-    }
-
-    private fun persistir() {
-        val ctx = contexto ?: return
-        val copiaProductos = productos.toList()
-        val copiaMovimientos = movimientos.toList()
-        alcance.launch {
-            InventarioDataStore.guardar(ctx, copiaProductos, copiaMovimientos)
+            movimientos.addAll(db.movimientoDao().todos())
         }
     }
 
@@ -62,14 +59,17 @@ object InventarioRepository {
         } else {
             productos.add(producto)
         }
-        persistir()
+        val db = base ?: return
+        alcance.launch { db.productoDao().guardar(producto) }
     }
 
     fun asignarFoto(codigo: String, ruta: String) {
         val posicion = productos.indexOfFirst { it.codigo == codigo }
         if (posicion >= 0) {
-            productos[posicion] = productos[posicion].copy(fotoPath = ruta)
-            persistir()
+            val actualizado = productos[posicion].copy(fotoPath = ruta)
+            productos[posicion] = actualizado
+            val db = base ?: return
+            alcance.launch { db.productoDao().guardar(actualizado) }
         }
     }
 
