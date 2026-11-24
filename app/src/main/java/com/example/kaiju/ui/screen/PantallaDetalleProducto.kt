@@ -56,15 +56,22 @@ import com.example.kaiju.ui.components.formatoPesos
 import com.example.kaiju.ui.theme.LocalStockColores
 import com.example.kaiju.viewmodel.InventarioViewModel
 import java.io.File
+import androidx.compose.material.icons.filled.Edit
+import com.example.kaiju.model.Rol
+import com.example.kaiju.viewmodel.SesionViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+
 fun PantallaDetalleProducto(
     inventarioViewModel: InventarioViewModel,
+    sesionViewModel: SesionViewModel,
     codigo: String,
     onVolver: () -> Unit,
-    onRegistrarMovimiento: () -> Unit
-) {
+    onRegistrarMovimiento: () -> Unit,
+    onEditarProducto: (String) -> Unit
+)
+{
     LaunchedEffect(codigo) {
         inventarioViewModel.abrirDetalle(codigo)
     }
@@ -72,12 +79,18 @@ fun PantallaDetalleProducto(
     val producto by inventarioViewModel.productoDetalle.collectAsState()
     val historial by inventarioViewModel.historial.collectAsState()
     val contexto = LocalContext.current
+    val usuarioActivo by sesionViewModel.usuarioActivo.collectAsState()
     val lanzadorFoto = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         if (bitmap != null) {
             val directorio = File(contexto.filesDir, "fotos").apply { mkdirs() }
-            val archivo = File(directorio, "$codigo.jpg")
+
+            val archivo = File(
+                directorio,
+                "${codigo}-${System.currentTimeMillis()}.jpg"
+            )
+
             archivo.outputStream().use { flujo ->
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 85, flujo)
             }
@@ -199,6 +212,28 @@ fun PantallaDetalleProducto(
                         }
                     }
                 }
+
+
+                if (usuarioActivo?.rol == Rol.ADMINISTRADOR) {
+                    item {
+                        OutlinedButton(
+                            onClick = {
+                                onEditarProducto(actual.codigo)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = null
+                            )
+
+                            Spacer(Modifier.width(8.dp))
+
+                            Text("Editar producto")
+                        }
+                    }
+                }
+
 
                 item {
                     Button(

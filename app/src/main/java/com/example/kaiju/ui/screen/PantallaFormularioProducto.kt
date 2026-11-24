@@ -44,6 +44,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.kaiju.viewmodel.InventarioViewModel
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +65,13 @@ fun PantallaFormularioProducto(
 
     val formulario by inventarioViewModel.formulario.collectAsState()
     val errores by inventarioViewModel.erroresFormulario.collectAsState()
+
+    val guardando by
+    inventarioViewModel.guardandoProducto.collectAsState()
+
+    val errorGuardado by
+    inventarioViewModel.errorGuardado.collectAsState()
+
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
@@ -191,16 +200,46 @@ fun PantallaFormularioProducto(
                 ) {
                     Text("Cancelar")
                 }
+
                 Button(
                     onClick = {
-                        if (inventarioViewModel.guardarProducto()) onGuardado()
+                        inventarioViewModel.guardarProducto { exito ->
+                            if (exito) {
+                                onGuardado()
+                            }
+                        }
                     },
+                    enabled = !guardando,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Done, contentDescription = null)
-                    Text(" Guardar")
+                    if (guardando) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Done,
+                            contentDescription = null
+                        )
+                    }
+
+                    Text(
+                        if (guardando) " Guardando..."
+                        else " Guardar"
+                    )
                 }
+
             }
+            errorGuardado?.let { mensaje ->
+                Text(
+                    text = mensaje,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
         }
     }
 }

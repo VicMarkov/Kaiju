@@ -164,12 +164,24 @@ fun AppNavHost() {
                 arguments = listOf(navArgument("codigo") { type = NavType.StringType })
             ) { entrada ->
                 val codigo = entrada.arguments?.getString("codigo").orEmpty()
+
                 PantallaDetalleProducto(
                     inventarioViewModel = inventarioViewModel,
+                    sesionViewModel = sesionViewModel,
                     codigo = codigo,
-                    onVolver = { navController.popBackStack() },
-                    onRegistrarMovimiento = { irA(Rutas.Movimiento.ruta) }
+                    onVolver = {
+                        navController.popBackStack()
+                    },
+                    onRegistrarMovimiento = {
+                        irA(Rutas.Movimiento.ruta)
+                    },
+                    onEditarProducto = { codigoProducto ->
+                        navController.navigate(
+                            Rutas.Formulario.editar(codigoProducto)
+                        )
+                    }
                 )
+
             }
 
             composable(

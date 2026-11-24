@@ -5,20 +5,15 @@ import com.example.kaiju.database.KaijuDatabase
 import com.example.kaiju.model.Movimiento
 import com.example.kaiju.model.Producto
 import com.example.kaiju.model.Usuario
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.Flow
 
 object InventarioRepository {
 
-    private val alcance = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var base: KaijuDatabase? = null
 
     private val usuarios = mutableListOf<Usuario>()
-    private val productos = mutableListOf<Producto>()
-    private val movimientos = mutableListOf<Movimiento>()
 
     fun inicializar(contextoAplicacion: Context) {
         val contextoLimpio = contextoAplicacion.applicationContext
@@ -32,47 +27,114 @@ object InventarioRepository {
             }
             usuarios.clear()
             usuarios.addAll(db.usuarioDao().todos())
-            productos.clear()
-            productos.addAll(db.productoDao().todos())
-            movimientos.clear()
-            movimientos.addAll(db.movimientoDao().todos())
         }
     }
+
+
+    fun observarProducto(codigo: String): Flow<Producto?> {
+        val db = checkNotNull(base) {
+            "La base de datos no está inicializada"
+        }
+
+        return db.productoDao().observarPorCodigo(codigo)
+    }
+
+    fun observarHistorial(codigo: String): Flow<List<Movimiento>> {
+        val db = checkNotNull(base) {
+            "La base de datos no está inicializada"
+        }
+
+        return db.movimientoDao().observarHistorial(codigo)
+    }
+
+
+
+    fun observarProductos(): Flow<List<Producto>> {
+        val db = checkNotNull(base) {
+            "InventarioRepository debe inicializarse antes de observar productos"
+        }
+
+        return db.productoDao().observarTodos()
+    }
+
+
+    suspend fun buscarProducto(codigo: String): Producto? {
+        val db = checkNotNull(base) {
+            "La base de datos no está inicializada"
+        }
+
+        return db.productoDao().buscarPorCodigo(codigo)
+    }
+
+    suspend fun codigoExiste(codigo: String): Boolean {
+        val db = checkNotNull(base) {
+            "La base de datos no está inicializada"
+        }
+
+        return db.productoDao().contarPorCodigo(codigo) > 0
+    }
+
+
 
     fun usuarios(): List<Usuario> = usuarios.toList()
 
     fun usuario(id: String): Usuario? = usuarios.find { it.id == id }
 
-    fun productos(): List<Producto> = productos.toList()
 
-    fun producto(codigo: String): Producto? = productos.find { it.codigo == codigo }
+    suspend fun guardarProducto(
+        producto: Producto,
+        codigoOriginal: String? = null
+    ) {
+        val db = checkNotNull(base) {
+            "La base de datos no está inicializada"
+        }
 
-    fun productosEnAlerta(): List<Producto> = productos.filter { it.estaEnAlerta() }
+        val dao = db.productoDao()
 
-    fun codigoExiste(codigo: String, codigoOriginal: String? = null): Boolean =
-        productos.any { it.codigo == codigo && it.codigo != codigoOriginal }
+        if (codigoOriginal == null) {
+            require(!codigoExiste(producto.codigo)) {
+                "El código ya existe"
+            }
 
-    fun guardarProducto(producto: Producto) {
-        val posicion = productos.indexOfFirst { it.codigo == producto.codigo }
-        if (posicion >= 0) {
-            productos[posicion] = producto
+            dao.insertar(producto)
         } else {
-            productos.add(producto)
+            require(producto.codigo == codigoOriginal) {
+                "No se permite modificar el código del producto"
+            }
+
+            val anterior = dao.buscarPorCodigo(codigoOriginal)
+                ?: throw IllegalArgumentException(
+                    "El producto no existe"
+                )
+
+            val actualizado = producto.copy(
+                stockActual = anterior.stockActual,
+                fotoPath = anterior.fotoPath
+            )
+
+            val filas = dao.actualizar(actualizado)
+
+            check(filas == 1) {
+                "No se pudo actualizar el producto"
+            }
         }
-        val db = base ?: return
-        alcance.launch { db.productoDao().guardar(producto) }
     }
 
-    fun asignarFoto(codigo: String, ruta: String) {
-        val posicion = productos.indexOfFirst { it.codigo == codigo }
-        if (posicion >= 0) {
-            val actualizado = productos[posicion].copy(fotoPath = ruta)
-            productos[posicion] = actualizado
-            val db = base ?: return
-            alcance.launch { db.productoDao().guardar(actualizado) }
+    suspend fun asignarFoto(
+        codigo: String,
+        ruta: String
+    ) {
+        val db = checkNotNull(base) {
+            "La base de datos no está inicializada"
+        }
+
+        val filas = db.productoDao().actualizarFoto(
+            codigo = codigo,
+            ruta = ruta
+        )
+
+        check(filas == 1) {
+            "No se pudo guardar la fotografía"
         }
     }
-
-    fun historialDe(codigo: String): List<Movimiento> =
-        movimientos.filter { it.codigoProducto == codigo }.reversed()
 }

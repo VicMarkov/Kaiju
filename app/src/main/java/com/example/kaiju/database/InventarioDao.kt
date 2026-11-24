@@ -7,6 +7,10 @@ import androidx.room.Upsert
 import com.example.kaiju.model.Movimiento
 import com.example.kaiju.model.Producto
 import com.example.kaiju.model.Usuario
+import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
+
+
 
 @Dao
 interface ProductoDao {
@@ -14,15 +18,47 @@ interface ProductoDao {
     @Query("SELECT * FROM productos ORDER BY rowid")
     suspend fun todos(): List<Producto>
 
+    @Query("SELECT * FROM productos ORDER BY rowid")
+    fun observarTodos(): Flow<List<Producto>>
+
+    @Query("SELECT * FROM productos WHERE codigo = :codigo LIMIT 1")
+    suspend fun buscarPorCodigo(codigo: String): Producto?
+
+    @Query("""
+        SELECT COUNT(*) FROM productos
+        WHERE codigo = :codigo COLLATE NOCASE
+    """)
+    suspend fun contarPorCodigo(codigo: String): Int
+
     @Query("SELECT COUNT(*) FROM productos")
     suspend fun contar(): Int
+
+
+    @Query("SELECT * FROM productos WHERE codigo = :codigo LIMIT 1")
+    fun observarPorCodigo(codigo: String): Flow<Producto?>
+
 
     @Insert
     suspend fun insertarTodos(productos: List<Producto>)
 
-    @Upsert
-    suspend fun guardar(producto: Producto)
+    @Insert
+    suspend fun insertar(producto: Producto)
+
+    @Update
+    suspend fun actualizar(producto: Producto): Int
+
+
+    @Query("""
+        UPDATE productos
+        SET fotoPath = :ruta
+        WHERE codigo = :codigo
+    """)
+    suspend fun actualizarFoto(
+        codigo: String,
+        ruta: String
+    ): Int
 }
+
 
 @Dao
 interface MovimientoDao {
@@ -32,6 +68,15 @@ interface MovimientoDao {
 
     @Query("SELECT COUNT(*) FROM movimientos")
     suspend fun contar(): Int
+
+
+    @Query("""
+    SELECT * FROM movimientos
+    WHERE codigoProducto = :codigo
+    ORDER BY rowid DESC
+            """)
+    fun observarHistorial(codigo: String): Flow<List<Movimiento>>
+
 
     @Insert
     suspend fun insertarTodos(movimientos: List<Movimiento>)

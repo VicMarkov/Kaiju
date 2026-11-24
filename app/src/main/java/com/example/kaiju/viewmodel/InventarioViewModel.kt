@@ -16,11 +16,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 class InventarioViewModel : ViewModel() {
 
-    private val _productos = MutableStateFlow(InventarioRepository.productos())
-    val productos: StateFlow<List<Producto>> = _productos.asStateFlow()
+
+    val productos: StateFlow<List<Producto>> =
+        InventarioRepository.observarProductos()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptyList()
+            )
+
 
     private val _busqueda = MutableStateFlow("")
     val busqueda: StateFlow<String> = _busqueda.asStateFlow()
@@ -35,8 +45,8 @@ class InventarioViewModel : ViewModel() {
     val tiposDetalle: List<String> = TIPOS_DETALLE
 
     val catalogo: StateFlow<List<Producto>> =
-        combine(_productos, _busqueda, _categoriaSeleccionada) { productos, busqueda, categoria ->
-            productos.filter { producto ->
+        combine(productos, _busqueda, _categoriaSeleccionada) { lista, busqueda, categoria ->
+            lista.filter { producto ->
                 val coincideBusqueda = busqueda.isBlank() ||
                     producto.nombre.contains(busqueda, ignoreCase = true) ||
                     producto.codigo.contains(busqueda, ignoreCase = true)
@@ -45,7 +55,7 @@ class InventarioViewModel : ViewModel() {
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val alertas: StateFlow<List<Producto>> = _productos
+    val alertas: StateFlow<List<Producto>> = productos
         .map { lista -> lista.filter { it.estaEnAlerta() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -57,7 +67,8 @@ class InventarioViewModel : ViewModel() {
         _categoriaSeleccionada.value = categoria
     }
 
-    fun productoDe(codigo: String): Producto? = InventarioRepository.producto(codigo)
+    fun productoDe(codigo: String): Producto? =
+        productos.value.find { it.codigo == codigo }
 
     private val _productoDetalle = MutableStateFlow<Producto?>(null)
     val productoDetalle: StateFlow<Producto?> = _productoDetalle.asStateFlow()
@@ -65,16 +76,52 @@ class InventarioViewModel : ViewModel() {
     private val _historial = MutableStateFlow<List<Movimiento>>(emptyList())
     val historial: StateFlow<List<Movimiento>> = _historial.asStateFlow()
 
+    private var detalleJob: Job? = null
+
+
     fun abrirDetalle(codigo: String) {
-        _productoDetalle.value = InventarioRepository.producto(codigo)
-        _historial.value = InventarioRepository.historialDe(codigo)
+        detalleJob?.cancel()
+
+        _productoDetalle.value = null
+        _historial.value = emptyList()
+
+        detalleJob = viewModelScope.launch {
+            launch {
+                InventarioRepository.observarProducto(codigo)
+                    .collect { producto ->
+                        _productoDetalle.value = producto
+                    }
+            }
+
+            launch {
+                InventarioRepository.observarHistorial(codigo)
+                    .collect { movimientos ->
+                        _historial.value = movimientos
+                    }
+            }
+        }
     }
 
-    fun asignarFoto(codigo: String, ruta: String) {
-        InventarioRepository.asignarFoto(codigo, ruta)
-        _productos.value = InventarioRepository.productos()
-        _productoDetalle.value = InventarioRepository.producto(codigo)
+    fun asignarFoto(
+        codigo: String,
+        ruta: String
+    ) {
+        viewModelScope.launch {
+            try {
+                InventarioRepository.asignarFoto(codigo, ruta)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e(
+                    "KaijuInventario",
+                    "Error al guardar la fotografía",
+                    e
+                )
+            }
+        }
     }
+
+
 
     private val _formulario = MutableStateFlow(FormularioProductoEstado())
     val formulario: StateFlow<FormularioProductoEstado> = _formulario.asStateFlow()
@@ -82,29 +129,51 @@ class InventarioViewModel : ViewModel() {
     private val _erroresFormulario = MutableStateFlow(FormularioProductoErrores())
     val erroresFormulario: StateFlow<FormularioProductoErrores> = _erroresFormulario.asStateFlow()
 
+
+    private val _guardandoProducto = MutableStateFlow(false)
+    val guardandoProducto: StateFlow<Boolean> =
+        _guardandoProducto.asStateFlow()
+
+    private val _errorGuardado = MutableStateFlow<String?>(null)
+    val errorGuardado: StateFlow<String?> =
+        _errorGuardado.asStateFlow()
+
+
     private var codigoEditando: String? = null
 
     fun nuevoProducto() {
         codigoEditando = null
         _formulario.value = FormularioProductoEstado()
         _erroresFormulario.value = FormularioProductoErrores()
+        _errorGuardado.value = null
     }
 
+
     fun editarProducto(codigo: String) {
-        val producto = InventarioRepository.producto(codigo) ?: return
-        codigoEditando = producto.codigo
+        codigoEditando = codigo
+        _formulario.value = FormularioProductoEstado()
         _erroresFormulario.value = FormularioProductoErrores()
-        _formulario.value = FormularioProductoEstado(
-            codigo = producto.codigo,
-            nombre = producto.nombre,
-            descripcion = producto.descripcion,
-            categoria = producto.categoria,
-            tipo = producto.tipo,
-            precio = producto.precio.toString(),
-            stockMinimo = producto.stockMinimo.toString(),
-            detalle = producto.detalle
-        )
+        _errorGuardado.value = null
+
+        viewModelScope.launch {
+            val producto =
+                InventarioRepository.buscarProducto(codigo) ?: return@launch
+
+            if (codigoEditando != codigo) return@launch
+
+            _formulario.value = FormularioProductoEstado(
+                codigo = producto.codigo,
+                nombre = producto.nombre,
+                descripcion = producto.descripcion,
+                categoria = producto.categoria,
+                tipo = producto.tipo,
+                precio = producto.precio.toString(),
+                stockMinimo = producto.stockMinimo.toString(),
+                detalle = producto.detalle
+            )
+        }
     }
+
 
     fun cambiarCodigo(valor: String) {
         _formulario.value = _formulario.value.copy(codigo = valor)
@@ -155,13 +224,31 @@ class InventarioViewModel : ViewModel() {
         }
     }
 
-    fun guardarProducto(): Boolean {
-        val estado = _formulario.value
-        val errores = validarFormularioProducto(estado, codigoEditando)
-        _erroresFormulario.value = errores
-        if (errores != FormularioProductoErrores()) return false
 
-        val original = codigoEditando?.let { InventarioRepository.producto(it) }
+    fun guardarProducto(
+        onResultado: (Boolean) -> Unit
+    ) {
+        // Evitar dos guardados simultáneos
+        if (_guardandoProducto.value) return
+
+        val estado = _formulario.value
+
+        val errores = validarFormularioProducto(
+            estado,
+            codigoEditando
+        )
+
+        _erroresFormulario.value = errores
+        _errorGuardado.value = null
+
+        // Los errores de formulario siguen mostrándose
+        // junto a los campos correspondientes.
+        if (errores != FormularioProductoErrores()) {
+            onResultado(false)
+            return
+        }
+
+
         val producto = Producto(
             codigo = estado.codigo.trim(),
             nombre = estado.nombre.trim(),
@@ -169,14 +256,42 @@ class InventarioViewModel : ViewModel() {
             categoria = estado.categoria,
             tipo = estado.tipo.ifBlank { "Sin detalle" },
             precio = estado.precio.trim().toInt(),
-            stockActual = original?.stockActual ?: 0,
+            stockActual = 0,
             stockMinimo = estado.stockMinimo.trim().toInt(),
-            detalle = estado.detalle.trim()
+            detalle = estado.detalle.trim(),
+            fotoPath = ""
         )
-        InventarioRepository.guardarProducto(producto)
-        _productos.value = InventarioRepository.productos()
-        return true
+
+        _guardandoProducto.value = true
+
+        viewModelScope.launch {
+
+            try {
+                // Esperar el guardado real en Room
+                InventarioRepository.guardarProducto(
+                    producto = producto,
+                    codigoOriginal = codigoEditando
+                )
+
+                // La observación de Room actualizará el catálogo automáticamente.
+                onResultado(true)
+
+            } catch (e: CancellationException) {
+                throw e
+
+            } catch (e: Exception) {
+                _errorGuardado.value =
+                    "No se pudo guardar el producto. " +
+                            "Inténtalo nuevamente."
+
+                onResultado(false)
+
+            } finally {
+                _guardandoProducto.value = false
+            }
+        }
     }
+
 
     private fun validarFormularioProducto(
         estado: FormularioProductoEstado,
@@ -184,11 +299,23 @@ class InventarioViewModel : ViewModel() {
     ): FormularioProductoErrores {
         val codigo = estado.codigo.trim()
 
+
         val errorCodigo = when {
-            codigo.isEmpty() -> "El código es obligatorio"
-            InventarioRepository.codigoExiste(codigo, codigoOriginal) -> "Ese código ya existe en el catálogo"
+            codigo.isEmpty() ->
+                "El código es obligatorio"
+
+            codigoOriginal != null && codigo != codigoOriginal ->
+                "No se puede modificar el código de un producto"
+
+            productos.value.any {
+                it.codigo.equals(codigo, ignoreCase = true) &&
+                        it.codigo != codigoOriginal
+            } ->
+                "Ese código ya existe en el catálogo"
+
             else -> null
         }
+
 
         val nombre = estado.nombre.trim()
         val errorNombre = when {
