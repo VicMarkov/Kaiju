@@ -17,5 +17,9 @@ sealed class Rutas(val ruta: String) {
 
     data object Movimiento : Rutas("movimiento")
 
+    data object MovimientoProducto : Rutas("movimiento/{codigo}") {
+        fun de(codigo: String) = "movimiento/$codigo"
+    }
+
     data object Alertas : Rutas("alertas")
 }

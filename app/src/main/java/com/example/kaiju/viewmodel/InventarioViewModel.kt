@@ -6,6 +6,11 @@ import com.example.kaiju.model.FormularioProductoErrores
 import com.example.kaiju.model.FormularioProductoEstado
 import com.example.kaiju.model.Movimiento
 import com.example.kaiju.model.Producto
+import com.example.kaiju.model.FormularioMovimientoEstado
+import com.example.kaiju.model.FormularioMovimientoErrores
+import com.example.kaiju.model.ReglasMovimiento
+import com.example.kaiju.model.TipoMovimiento
+import com.example.kaiju.model.Usuario
 import com.example.kaiju.repository.CATEGORIAS
 import com.example.kaiju.repository.InventarioRepository
 import com.example.kaiju.repository.TIPOS_DETALLE
@@ -19,6 +24,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+
 
 class InventarioViewModel : ViewModel() {
 
@@ -128,6 +134,28 @@ class InventarioViewModel : ViewModel() {
 
     private val _erroresFormulario = MutableStateFlow(FormularioProductoErrores())
     val erroresFormulario: StateFlow<FormularioProductoErrores> = _erroresFormulario.asStateFlow()
+
+    private val _formularioMovimiento =
+        MutableStateFlow(FormularioMovimientoEstado())
+
+    val formularioMovimiento: StateFlow<FormularioMovimientoEstado> =
+        _formularioMovimiento.asStateFlow()
+
+    private val _erroresMovimiento =
+        MutableStateFlow(FormularioMovimientoErrores())
+
+    val erroresMovimiento: StateFlow<FormularioMovimientoErrores> =
+        _erroresMovimiento.asStateFlow()
+
+    private val _guardandoMovimiento = MutableStateFlow(false)
+
+    val guardandoMovimiento: StateFlow<Boolean> =
+        _guardandoMovimiento.asStateFlow()
+
+    private val _errorMovimiento = MutableStateFlow<String?>(null)
+
+    val errorMovimiento: StateFlow<String?> =
+        _errorMovimiento.asStateFlow()
 
 
     private val _guardandoProducto = MutableStateFlow(false)
@@ -349,5 +377,200 @@ class InventarioViewModel : ViewModel() {
             precio = errorPrecio,
             stockMinimo = errorStockMinimo
         )
+    }
+
+    private fun validarFormularioMovimiento(
+        estado: FormularioMovimientoEstado,
+        usuario: Usuario?
+    ): FormularioMovimientoErrores {
+
+        val codigo = estado.codigoProducto.trim()
+        val tipo = TipoMovimiento.entries.find {
+            it.name == estado.tipo
+        }
+        val cantidad = estado.cantidad.trim().toIntOrNull()
+
+        val errorProducto = when {
+            codigo.isBlank() ->
+                "Selecciona un producto"
+
+            else -> null
+        }
+
+        val errorTipo = if (tipo == null) {
+            "Selecciona un tipo de movimiento"
+        } else {
+            null
+        }
+
+        val errorCantidad = when {
+            estado.cantidad.isBlank() ->
+                "Ingresa una cantidad"
+
+            cantidad == null ->
+                "Ingresa un número entero válido"
+
+            cantidad == 0 ->
+                "La cantidad debe ser distinta de cero"
+
+            cantidad == Int.MIN_VALUE ->
+                "La cantidad está fuera del rango permitido"
+
+            tipo != null &&
+                    tipo != TipoMovimiento.AJUSTE &&
+                    cantidad < 0 ->
+                "La cantidad debe ser mayor que cero"
+
+            else -> null
+        }
+
+        val errorMotivo = if (
+            tipo == TipoMovimiento.AJUSTE &&
+            estado.motivo.isBlank()
+        ) {
+            "Debes indicar el motivo del ajuste"
+        } else {
+            null
+        }
+
+        return FormularioMovimientoErrores(
+            codigoProducto = errorProducto,
+            tipo = errorTipo,
+            cantidad = errorCantidad,
+            motivo = errorMotivo
+        )
+    }
+
+    fun guardarMovimiento(
+        usuario: Usuario?,
+        onResultado: (Boolean) -> Unit
+    ) {
+        if (_guardandoMovimiento.value) return
+
+        val estado = _formularioMovimiento.value
+
+        _errorMovimiento.value = null
+
+        val errores = validarFormularioMovimiento(
+            estado = estado,
+            usuario = usuario
+        )
+
+        _erroresMovimiento.value = errores
+
+        if (errores != FormularioMovimientoErrores()) {
+            onResultado(false)
+            return
+        }
+
+        if (usuario == null) {
+            _errorMovimiento.value = "Debes iniciar sesión"
+            onResultado(false)
+            return
+        }
+
+        val tipo = TipoMovimiento.valueOf(estado.tipo)
+        val cantidad = estado.cantidad.trim().toInt()
+
+        val errorReglas = ReglasMovimiento.validar(
+            tipo = tipo,
+            cantidad = cantidad,
+            motivo = estado.motivo,
+            rol = usuario.rol
+        )
+
+        if (errorReglas != null) {
+            _errorMovimiento.value = errorReglas
+            onResultado(false)
+            return
+        }
+
+        _guardandoMovimiento.value = true
+
+        viewModelScope.launch {
+            try {
+                InventarioRepository.registrarMovimiento(
+                    codigoProducto = estado.codigoProducto.trim(),
+                    tipo = tipo,
+                    cantidad = cantidad,
+                    motivo = estado.motivo.trim(),
+                    usuario = usuario
+                )
+
+                _formularioMovimiento.value =
+                    FormularioMovimientoEstado()
+
+                _erroresMovimiento.value =
+                    FormularioMovimientoErrores()
+
+                onResultado(true)
+
+            } catch (e: CancellationException) {
+                throw e
+
+            } catch (e: IllegalArgumentException) {
+                _errorMovimiento.value =
+                    e.message ?: "Movimiento inválido"
+
+                onResultado(false)
+
+            } catch (e: Exception) {
+                _errorMovimiento.value =
+                    "No se pudo registrar el movimiento"
+
+                onResultado(false)
+
+            } finally {
+                _guardandoMovimiento.value = false
+            }
+        }
+    }
+
+    fun nuevoMovimiento(codigoProducto: String = "") {
+        if (_guardandoMovimiento.value) return
+
+        _formularioMovimiento.value = FormularioMovimientoEstado(
+            codigoProducto = codigoProducto
+        )
+        _erroresMovimiento.value = FormularioMovimientoErrores()
+        _errorMovimiento.value = null
+    }
+
+    fun cambiarProductoMovimiento(valor: String) {
+        _formularioMovimiento.value =
+            _formularioMovimiento.value.copy(codigoProducto = valor)
+
+        _erroresMovimiento.value =
+            _erroresMovimiento.value.copy(codigoProducto = null)
+    }
+
+    fun cambiarTipoMovimiento(valor: String) {
+        _formularioMovimiento.value =
+            _formularioMovimiento.value.copy(tipo = valor)
+
+        _erroresMovimiento.value =
+            _erroresMovimiento.value.copy(tipo = null)
+
+        _errorMovimiento.value = null
+    }
+
+    fun cambiarCantidadMovimiento(valor: String) {
+        _formularioMovimiento.value =
+            _formularioMovimiento.value.copy(cantidad = valor)
+
+        _erroresMovimiento.value =
+            _erroresMovimiento.value.copy(cantidad = null)
+
+        _errorMovimiento.value = null
+    }
+
+    fun cambiarMotivoMovimiento(valor: String) {
+        _formularioMovimiento.value =
+            _formularioMovimiento.value.copy(motivo = valor)
+
+        _erroresMovimiento.value =
+            _erroresMovimiento.value.copy(motivo = null)
+
+        _errorMovimiento.value = null
     }
 }

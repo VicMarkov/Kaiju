@@ -8,6 +8,14 @@ import com.example.kaiju.model.Usuario
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.Flow
+import androidx.room.withTransaction
+import com.example.kaiju.model.ReglasMovimiento
+import com.example.kaiju.model.Rol
+import com.example.kaiju.model.TipoMovimiento
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
 
 object InventarioRepository {
 
@@ -117,6 +125,62 @@ object InventarioRepository {
             check(filas == 1) {
                 "No se pudo actualizar el producto"
             }
+        }
+    }
+
+    suspend fun registrarMovimiento(
+        codigoProducto: String,
+        tipo: TipoMovimiento,
+        cantidad: Int,
+        motivo: String,
+        usuario: Usuario
+    ) {
+        val error = ReglasMovimiento.validar(
+            tipo = tipo,
+            cantidad = cantidad,
+            motivo = motivo,
+            rol = usuario.rol
+        )
+
+        require(error == null) {
+            error ?: "Movimiento inválido"
+        }
+
+        val db = checkNotNull(base) {
+            "La base de datos no está inicializada"
+        }
+
+        val variacion = ReglasMovimiento.calcularVariacion(
+            tipo = tipo,
+            cantidad = cantidad
+        )
+
+        val fecha = SimpleDateFormat(
+            "dd/MM/yyyy HH:mm",
+            Locale.getDefault()
+        ).format(Date())
+
+        val movimiento = Movimiento(
+            id = UUID.randomUUID().toString(),
+            codigoProducto = codigoProducto,
+            tipo = tipo,
+            cantidad = cantidad,
+            motivo = motivo.trim(),
+            fecha = fecha,
+            usuario = usuario.nombre
+        )
+
+        db.withTransaction {
+            val filasActualizadas = db.productoDao().modificarStock(
+                codigo = codigoProducto,
+                variacion = variacion
+            )
+
+            require(filasActualizadas == 1) {
+                "El producto no existe o el stock es insuficiente"
+            }
+
+            db.movimientoDao().insertar(movimiento)
         }
     }
 

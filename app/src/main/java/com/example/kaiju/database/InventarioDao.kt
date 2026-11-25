@@ -30,6 +30,18 @@ interface ProductoDao {
     """)
     suspend fun contarPorCodigo(codigo: String): Int
 
+    @Query("""
+    UPDATE productos
+    SET stockActual = stockActual + :variacion
+    WHERE codigo = :codigo
+    AND stockActual + :variacion >= 0
+""")
+    suspend fun modificarStock(
+        codigo: String,
+        variacion: Int
+    ): Int
+
+
     @Query("SELECT COUNT(*) FROM productos")
     suspend fun contar(): Int
 
@@ -69,7 +81,6 @@ interface MovimientoDao {
     @Query("SELECT COUNT(*) FROM movimientos")
     suspend fun contar(): Int
 
-
     @Query("""
     SELECT * FROM movimientos
     WHERE codigoProducto = :codigo
@@ -77,6 +88,8 @@ interface MovimientoDao {
             """)
     fun observarHistorial(codigo: String): Flow<List<Movimiento>>
 
+    @Insert
+    suspend fun insertar(movimiento: Movimiento)
 
     @Insert
     suspend fun insertarTodos(movimientos: List<Movimiento>)

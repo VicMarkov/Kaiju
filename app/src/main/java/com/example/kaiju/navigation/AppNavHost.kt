@@ -172,8 +172,11 @@ fun AppNavHost() {
                     onVolver = {
                         navController.popBackStack()
                     },
+
                     onRegistrarMovimiento = {
-                        irA(Rutas.Movimiento.ruta)
+                        navController.navigate(
+                            Rutas.MovimientoProducto.de(codigo)
+                        )
                     },
                     onEditarProducto = { codigoProducto ->
                         navController.navigate(
@@ -204,7 +207,33 @@ fun AppNavHost() {
             }
 
             composable(Rutas.Movimiento.ruta) {
-                PantallaMovimiento(sesionViewModel = sesionViewModel)
+                PantallaMovimiento(
+                    inventarioViewModel = inventarioViewModel,
+                    sesionViewModel = sesionViewModel
+                )
+            }
+
+            composable(
+                route = Rutas.MovimientoProducto.ruta,
+                arguments = listOf(
+                    navArgument("codigo") {
+                        type = NavType.StringType
+                    }
+                )
+            ) { entrada ->
+
+                val codigo = entrada.arguments
+                    ?.getString("codigo")
+                    .orEmpty()
+
+                PantallaMovimiento(
+                    inventarioViewModel = inventarioViewModel,
+                    sesionViewModel = sesionViewModel,
+                    codigoProductoInicial = codigo,
+                    onVolver = {
+                        navController.popBackStack()
+                    }
+                )
             }
 
             composable(Rutas.Alertas.ruta) {
